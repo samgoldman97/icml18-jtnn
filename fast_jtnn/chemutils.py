@@ -4,9 +4,9 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import minimum_spanning_tree
 from collections import defaultdict
 from rdkit.Chem.EnumerateStereoisomers import EnumerateStereoisomers, StereoEnumerationOptions
-from vocab import Vocab
+from .vocab import Vocab
 
-MST_MAX_WEIGHT = 100 
+MST_MAX_WEIGHT = 100
 MAX_NCAND = 2000
 
 def set_atommap(mol, num=0):
@@ -15,7 +15,7 @@ def set_atommap(mol, num=0):
 
 def get_mol(smiles):
     mol = Chem.MolFromSmiles(smiles)
-    if mol is None: 
+    if mol is None:
         return None
     Chem.Kekulize(mol)
     return mol
@@ -91,7 +91,7 @@ def tree_decomp(mol):
     for i in xrange(len(cliques)):
         for atom in cliques[i]:
             nei_list[atom].append(i)
-    
+
     #Merge Rings with intersection > 2 atoms
     for i in xrange(len(cliques)):
         if len(cliques[i]) <= 2: continue
@@ -103,17 +103,17 @@ def tree_decomp(mol):
                     cliques[i].extend(cliques[j])
                     cliques[i] = list(set(cliques[i]))
                     cliques[j] = []
-    
+
     cliques = [c for c in cliques if len(c) > 0]
     nei_list = [[] for i in xrange(n_atoms)]
     for i in xrange(len(cliques)):
         for atom in cliques[i]:
             nei_list[atom].append(i)
-    
+
     #Build edges and add singleton cliques
     edges = defaultdict(int)
     for atom in xrange(n_atoms):
-        if len(nei_list[atom]) <= 1: 
+        if len(nei_list[atom]) <= 1:
             continue
         cnei = nei_list[atom]
         bonds = [c for c in cnei if len(cliques[c]) == 2]
@@ -211,13 +211,13 @@ def enum_attach(ctr_mol, nei_node, amap, singletons):
             if atom_equal(atom, nei_atom) and atom.GetIdx() not in used_list:
                 new_amap = amap + [(nei_idx, atom.GetIdx(), 0)]
                 att_confs.append( new_amap )
-   
+
     elif nei_mol.GetNumBonds() == 1: #neighbor is a bond
         bond = nei_mol.GetBondWithIdx(0)
         bond_val = int(bond.GetBondTypeAsDouble())
         b1,b2 = bond.GetBeginAtom(), bond.GetEndAtom()
 
-        for atom in ctr_atoms: 
+        for atom in ctr_atoms:
             #Optimize if atom is carbon (other atoms may change valence)
             if atom.GetAtomicNum() == 6 and atom.GetTotalNumHs() < bond_val:
                 continue
@@ -227,7 +227,7 @@ def enum_attach(ctr_mol, nei_node, amap, singletons):
             elif atom_equal(atom, b2):
                 new_amap = amap + [(nei_idx, atom.GetIdx(), b2.GetIdx())]
                 att_confs.append( new_amap )
-    else: 
+    else:
         #intersection is an atom
         for a1 in ctr_atoms:
             for a2 in nei_mol.GetAtoms():
@@ -251,7 +251,7 @@ def enum_attach(ctr_mol, nei_node, amap, singletons):
                         att_confs.append( new_amap )
     return att_confs
 
-#Try rings first: Speed-Up 
+#Try rings first: Speed-Up
 def enum_assemble(node, neighbors, prev_nodes=[], prev_amap=[]):
     all_attach_confs = []
     singletons = [nei_node.nid for nei_node in neighbors + prev_nodes if nei_node.mol.GetNumAtoms() == 1]
@@ -298,7 +298,7 @@ def enum_assemble(node, neighbors, prev_nodes=[], prev_amap=[]):
         candidates.append( (smiles,amap) )
         aroma_score.append( check_aroma(cand_mol, node, neighbors) )
 
-    return candidates, aroma_score 
+    return candidates, aroma_score
 
 def check_singleton(cand_mol, ctr_node, nei_nodes):
     rings = [node for node in nei_nodes + [ctr_node] if node.mol.GetNumAtoms() > 2]
@@ -308,7 +308,7 @@ def check_singleton(cand_mol, ctr_node, nei_nodes):
     n_leaf2_atoms = 0
     for atom in cand_mol.GetAtoms():
         nei_leaf_atoms = [a for a in atom.GetNeighbors() if not a.IsInRing()] #a.GetDegree() == 1]
-        if len(nei_leaf_atoms) > 1: 
+        if len(nei_leaf_atoms) > 1:
             n_leaf2_atoms += 1
 
     return n_leaf2_atoms == 0
@@ -318,9 +318,9 @@ def check_aroma(cand_mol, ctr_node, nei_nodes):
     if len(rings) < 2: return 0 #Only multi-ring system needs to be checked
 
     get_nid = lambda x: 0 if x.is_leaf else x.nid
-    benzynes = [get_nid(node) for node in nei_nodes + [ctr_node] if node.smiles in Vocab.benzynes] 
-    penzynes = [get_nid(node) for node in nei_nodes + [ctr_node] if node.smiles in Vocab.penzynes] 
-    if len(benzynes) + len(penzynes) == 0: 
+    benzynes = [get_nid(node) for node in nei_nodes + [ctr_node] if node.smiles in Vocab.benzynes]
+    penzynes = [get_nid(node) for node in nei_nodes + [ctr_node] if node.smiles in Vocab.penzynes]
+    if len(benzynes) + len(penzynes) == 0:
         return 0 #No specific aromatic rings
 
     n_aroma_atoms = 0
@@ -331,7 +331,7 @@ def check_aroma(cand_mol, ctr_node, nei_nodes):
     if n_aroma_atoms >= len(benzynes) * 4 + len(penzynes) * 3:
         return 1000
     else:
-        return -0.001 
+        return -0.001
 
 #Only used for debugging purpose
 def dfs_assemble(cur_mol, global_amap, fa_amap, cur_node, fa_node):
@@ -355,7 +355,7 @@ def dfs_assemble(cur_mol, global_amap, fa_amap, cur_node, fa_node):
         if nei_id == fa_nid:
             continue
         global_amap[nei_id][nei_atom] = global_amap[cur_node.nid][ctr_atom]
-    
+
     cur_mol = attach_mols(cur_mol, children, [], global_amap) #father is already attached
     for nei_node in children:
         if not nei_node.is_leaf:
@@ -364,19 +364,19 @@ def dfs_assemble(cur_mol, global_amap, fa_amap, cur_node, fa_node):
 if __name__ == "__main__":
     import sys
     from mol_tree import MolTree
-    lg = rdkit.RDLogger.logger() 
+    lg = rdkit.RDLogger.logger()
     lg.setLevel(rdkit.RDLogger.CRITICAL)
-    
+
     smiles = ["O=C1[C@@H]2C=C[C@@H](C=CC2)C1(c1ccccc1)c1ccccc1","O=C([O-])CC[C@@]12CCCC[C@]1(O)OC(=O)CC2", "ON=C1C[C@H]2CC3(C[C@@H](C1)c1ccccc12)OCCO3", "C[C@H]1CC(=O)[C@H]2[C@@]3(O)C(=O)c4cccc(O)c4[C@@H]4O[C@@]43[C@@H](O)C[C@]2(O)C1", 'Cc1cc(NC(=O)CSc2nnc3c4ccccc4n(C)c3n2)ccc1Br', 'CC(C)(C)c1ccc(C(=O)N[C@H]2CCN3CCCc4cccc2c43)cc1', "O=c1c2ccc3c(=O)n(-c4nccs4)c(=O)c4ccc(c(=O)n1-c1nccs1)c2c34", "O=C(N1CCc2c(F)ccc(F)c2C1)C1(O)Cc2ccccc2C1"]
 
     def tree_test():
         for s in sys.stdin:
             s = s.split()[0]
             tree = MolTree(s)
-            print '-------------------------------------------'
-            print s
+            print('-------------------------------------------')
+            print(s)
             for node in tree.nodes:
-                print node.smiles, [x.smiles for x in node.neighbors]
+                print(node.smiles, [x.smiles for x in node.neighbors])
 
     def decode_test():
         wrong = 0
@@ -398,9 +398,9 @@ if __name__ == "__main__":
 
             gold_smiles = Chem.MolToSmiles(Chem.MolFromSmiles(s))
             if gold_smiles != dec_smiles:
-                print gold_smiles, dec_smiles
+                print(gold_smiles, dec_smiles)
                 wrong += 1
-            print wrong, tot + 1
+            print(wrong, tot + 1)
 
     def enum_test():
         for s in sys.stdin:
@@ -410,9 +410,9 @@ if __name__ == "__main__":
             tree.assemble()
             for node in tree.nodes:
                 if node.label not in node.cands:
-                    print tree.smiles
-                    print node.smiles, [x.smiles for x in node.neighbors]
-                    print node.label, len(node.cands)
+                    print(tree.smiles)
+                    print(node.smiles, [x.smiles for x in node.neighbors])
+                    print(node.label, len(node.cands))
 
     def count():
         cnt,n = 0,0
@@ -424,6 +424,6 @@ if __name__ == "__main__":
             for node in tree.nodes:
                 cnt += len(node.cands)
             n += len(tree.nodes)
-            #print cnt * 1.0 / n
-    
+            #print(cnt * 1.0 / n)
+
     count()

@@ -1,13 +1,13 @@
 import torch
 import torch.nn as nn
-from mol_tree import Vocab, MolTree
-from nnutils import create_var
-from jtnn_enc import JTNNEncoder
-from jtnn_dec import JTNNDecoder
-from mpn import MPN, mol2graph
-from jtmpn import JTMPN
+from .mol_tree import Vocab, MolTree
+from .nnutils import create_var
+from .jtnn_enc import JTNNEncoder
+from .jtnn_dec import JTNNDecoder
+from .mpn import MPN, mol2graph
+from .jtmpn import JTMPN
 
-from chemutils import enum_assemble, set_atommap, copy_edit_mol, attach_mols, atom_equal, decode_stereo
+from .chemutils import enum_assemble, set_atommap, copy_edit_mol, attach_mols, atom_equal, decode_stereo
 import rdkit
 import rdkit.Chem as Chem
 from rdkit import DataStructs
@@ -41,7 +41,7 @@ class JTPropVAE(nn.Module):
         self.T_var = nn.Linear(hidden_size, latent_size / 2)
         self.G_mean = nn.Linear(hidden_size, latent_size / 2)
         self.G_var = nn.Linear(hidden_size, latent_size / 2)
-        
+
         self.propNN = nn.Sequential(
                 nn.Linear(self.latent_size, self.hidden_size),
                 nn.Tanh(),
@@ -50,7 +50,7 @@ class JTPropVAE(nn.Module):
         self.prop_loss = nn.MSELoss()
         self.assm_loss = nn.CrossEntropyLoss(size_average=False)
         self.stereo_loss = nn.CrossEntropyLoss(size_average=False)
-    
+
     def encode(self, mol_batch):
         set_batch_nodeID(mol_batch, self.vocab)
         root_batch = [mol_tree.nodes[0] for mol_tree in mol_batch]
@@ -88,7 +88,7 @@ class JTPropVAE(nn.Module):
         tree_vec = tree_mean + torch.exp(tree_log_var / 2) * epsilon
         epsilon = create_var(torch.randn(batch_size, self.latent_size / 2), False)
         mol_vec = mol_mean + torch.exp(mol_log_var / 2) * epsilon
-        
+
         word_loss, topo_loss, word_acc, topo_acc = self.decoder(mol_batch, tree_vec)
         assm_loss, assm_acc = self.assm(mol_batch, mol_vec, tree_mess)
         stereo_loss, stereo_acc = self.stereo(mol_batch, mol_vec)
@@ -96,7 +96,7 @@ class JTPropVAE(nn.Module):
         all_vec = torch.cat([tree_vec, mol_vec], dim=1)
         prop_label = create_var(torch.Tensor(prop_batch))
         prop_loss = self.prop_loss(self.propNN(all_vec).squeeze(), prop_label)
-        
+
         loss = word_loss + topo_loss + assm_loss + 2 * stereo_loss + beta * kl_loss + prop_loss
         return loss, kl_loss.data[0], word_acc, topo_acc, assm_acc, stereo_acc, prop_loss.data[0]
 
@@ -119,7 +119,7 @@ class JTPropVAE(nn.Module):
         mol_vec = mol_vec.view(-1, 1, self.latent_size / 2)
         cand_vec = cand_vec.view(-1, self.latent_size / 2, 1)
         scores = torch.bmm(mol_vec, cand_vec).squeeze()
-        
+
         cnt,tot,acc = 0,0,0
         all_loss = []
         for i,mol_tree in enumerate(mol_batch):
@@ -136,7 +136,7 @@ class JTPropVAE(nn.Module):
 
                 label = create_var(torch.LongTensor([label]))
                 all_loss.append( self.assm_loss(cur_score.view(1,-1), label) )
-        
+
         all_loss = sum(all_loss) / len(mol_batch)
         return all_loss, acc * 1.0 / cnt
 
@@ -152,7 +152,7 @@ class JTPropVAE(nn.Module):
             batch_idx.extend([i] * len(cands))
             labels.append( (cands.index(mol_tree.smiles3D), len(cands)) )
 
-        if len(labels) == 0: 
+        if len(labels) == 0:
             return create_var(torch.zeros(1)), 1.0
 
         batch_idx = create_var(torch.LongTensor(batch_idx))
@@ -165,7 +165,7 @@ class JTPropVAE(nn.Module):
         all_loss = []
         for label,le in labels:
             cur_scores = scores.narrow(0, st, le)
-            if cur_scores.data[label] >= cur_scores.max().data[0]: 
+            if cur_scores.data[label] >= cur_scores.max().data[0]:
                 acc += 1
             label = create_var(torch.LongTensor([label]))
             all_loss.append( self.stereo_loss(cur_scores.view(1,-1), label) )
@@ -177,7 +177,7 @@ class JTPropVAE(nn.Module):
         mol_tree = MolTree(smiles)
         mol_tree.recover()
         _,tree_vec,mol_vec = self.encode([mol_tree])
-        
+
         tree_mean = self.T_mean(tree_vec)
         tree_log_var = -torch.abs(self.T_var(tree_vec)) #Following Mueller et al.
         mol_mean = self.G_mean(mol_vec)
@@ -198,10 +198,10 @@ class JTPropVAE(nn.Module):
         mol_tree = MolTree(smiles)
         mol_tree.recover()
         _,tree_vec,mol_vec = self.encode([mol_tree])
-        
+
         mol = Chem.MolFromSmiles(smiles)
         fp1 = AllChem.GetMorganFingerprint(mol, 2)
-        
+
         tree_mean = self.T_mean(tree_vec)
         tree_log_var = -torch.abs(self.T_var(tree_vec)) #Following Mueller et al.
         mol_mean = self.G_mean(mol_vec)
@@ -217,7 +217,7 @@ class JTPropVAE(nn.Module):
             cur_vec = cur_vec.data + lr * grad.data
             cur_vec = create_var(cur_vec, True)
             visited.append(cur_vec)
-        
+
         l,r = 0, num_iter - 1
         while l < r - 1:
             mid = (l + r) / 2
@@ -230,7 +230,7 @@ class JTPropVAE(nn.Module):
 
             new_mol = Chem.MolFromSmiles(new_smiles)
             fp2 = AllChem.GetMorganFingerprint(new_mol, 2)
-            sim = DataStructs.TanimotoSimilarity(fp1, fp2) 
+            sim = DataStructs.TanimotoSimilarity(fp1, fp2)
             if sim < sim_cutoff:
                 r = mid - 1
             else:
@@ -243,7 +243,7 @@ class JTPropVAE(nn.Module):
             if new_smiles is None: continue
             new_mol = Chem.MolFromSmiles(new_smiles)
             fp2 = AllChem.GetMorganFingerprint(new_mol, 2)
-            sim = DataStructs.TanimotoSimilarity(fp1, fp2) 
+            sim = DataStructs.TanimotoSimilarity(fp1, fp2)
             if sim >= sim_cutoff:
                 best_vec = new_vec
         """
@@ -254,12 +254,12 @@ class JTPropVAE(nn.Module):
             return smiles, 1.0
         new_mol = Chem.MolFromSmiles(new_smiles)
         fp2 = AllChem.GetMorganFingerprint(new_mol, 2)
-        sim = DataStructs.TanimotoSimilarity(fp1, fp2) 
+        sim = DataStructs.TanimotoSimilarity(fp1, fp2)
         if sim >= sim_cutoff:
             return new_smiles, sim
         else:
             return smiles, 1.0
-    
+
     def decode(self, tree_vec, mol_vec, prob_decode):
         pred_root,pred_nodes = self.decoder.decode(tree_vec, prob_decode)
 
@@ -277,7 +277,7 @@ class JTPropVAE(nn.Module):
         global_amap[1] = {atom.GetIdx():atom.GetIdx() for atom in cur_mol.GetAtoms()}
 
         cur_mol = self.dfs_assemble(tree_mess, mol_vec, pred_nodes, cur_mol, global_amap, [], pred_root, None, prob_decode)
-        if cur_mol is None: 
+        if cur_mol is None:
             return None
 
         cur_mol = cur_mol.GetMol()
@@ -287,7 +287,7 @@ class JTPropVAE(nn.Module):
 
         smiles2D = Chem.MolToSmiles(cur_mol)
         stereo_cands = decode_stereo(smiles2D)
-        if len(stereo_cands) == 1: 
+        if len(stereo_cands) == 1:
             return stereo_cands[0]
         stereo_vecs = self.mpn(mol2graph(stereo_cands))
         stereo_vecs = self.G_mean(stereo_vecs)
@@ -340,12 +340,12 @@ class JTPropVAE(nn.Module):
             new_mol = Chem.MolFromSmiles(Chem.MolToSmiles(new_mol))
 
             if new_mol is None: continue
-            
+
             result = True
             for nei_node in children:
                 if nei_node.is_leaf: continue
                 cur_mol = self.dfs_assemble(tree_mess, mol_vec, all_nodes, cur_mol, new_global_amap, pred_amap, nei_node, cur_node, prob_decode)
-                if cur_mol is None: 
+                if cur_mol is None:
                     result = False
                     break
             if result: return cur_mol

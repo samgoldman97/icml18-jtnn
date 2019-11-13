@@ -1,14 +1,14 @@
 import torch
 import torch.nn as nn
-from nnutils import create_var, index_select_ND
-from chemutils import get_mol
+from .nnutils import create_var, index_select_ND
+from .chemutils import get_mol
 #from mpn import atom_features, bond_features, ATOM_FDIM, BOND_FDIM
 import rdkit.Chem as Chem
 
 ELEM_LIST = ['C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na', 'Ca', 'Fe', 'Al', 'I', 'B', 'K', 'Se', 'Zn', 'H', 'Cu', 'Mn', 'unknown']
 
 ATOM_FDIM = len(ELEM_LIST) + 6 + 5 + 1
-BOND_FDIM = 5 
+BOND_FDIM = 5
 MAX_NB = 10
 
 def onek_encoding_unk(x, allowable_set):
@@ -17,8 +17,8 @@ def onek_encoding_unk(x, allowable_set):
     return map(lambda s: x == s, allowable_set)
 
 def atom_features(atom):
-    return torch.Tensor(onek_encoding_unk(atom.GetSymbol(), ELEM_LIST) 
-            + onek_encoding_unk(atom.GetDegree(), [0,1,2,3,4,5]) 
+    return torch.Tensor(onek_encoding_unk(atom.GetSymbol(), ELEM_LIST)
+            + onek_encoding_unk(atom.GetDegree(), [0,1,2,3,4,5])
             + onek_encoding_unk(atom.GetFormalCharge(), [-1,-2,1,2,0])
             + [atom.GetIsAromatic()])
 
@@ -38,8 +38,8 @@ class JTMPN(nn.Module):
         self.W_o = nn.Linear(ATOM_FDIM + hidden_size, hidden_size)
 
     def forward(self, cand_batch, tree_mess):
-        fatoms,fbonds = [],[] 
-        in_bonds,all_bonds = [],[] 
+        fatoms,fbonds = [],[]
+        in_bonds,all_bonds = [],[]
         mess_dict,all_mess = {},[create_var(torch.zeros(self.hidden_size))] #Ensure index 0 is vec(0)
         total_atoms = 0
         scope = []
@@ -54,8 +54,8 @@ class JTMPN(nn.Module):
 
             for atom in mol.GetAtoms():
                 fatoms.append( atom_features(atom) )
-                in_bonds.append([]) 
-        
+                in_bonds.append([])
+
             for bond in mol.GetBonds():
                 a1 = bond.GetBeginAtom()
                 a2 = bond.GetEndAtom()
@@ -85,10 +85,10 @@ class JTMPN(nn.Module):
                     if (y_bid,x_bid) in mess_dict:
                         mess_idx = mess_dict[(y_bid,x_bid)]
                         in_bonds[x].append(mess_idx)
-            
+
             scope.append((total_atoms,n_atoms))
             total_atoms += n_atoms
-        
+
         total_bonds = len(all_bonds)
         total_mess = len(all_mess)
         fatoms = torch.stack(fatoms, 0)
@@ -127,7 +127,7 @@ class JTMPN(nn.Module):
         nei_message = nei_message.sum(dim=1)
         ainput = torch.cat([fatoms, nei_message], dim=1)
         atom_hiddens = nn.ReLU()(self.W_o(ainput))
-        
+
         mol_vecs = []
         for st,le in scope:
             mol_vec = atom_hiddens.narrow(0, st, le).sum(dim=0) / le
@@ -135,4 +135,3 @@ class JTMPN(nn.Module):
 
         mol_vecs = torch.stack(mol_vecs, dim=0)
         return mol_vecs
-

@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import rdkit.Chem as Chem
 import torch.nn.functional as F
-from nnutils import *
-from chemutils import get_mol
+from .nnutils import *
+from .chemutils import get_mol
 
 ELEM_LIST = ['C', 'N', 'O', 'S', 'F', 'Si', 'P', 'Cl', 'Br', 'Mg', 'Na', 'Ca', 'Fe', 'Al', 'I', 'B', 'K', 'Se', 'Zn', 'H', 'Cu', 'Mn', 'unknown']
 
@@ -17,8 +17,8 @@ def onek_encoding_unk(x, allowable_set):
     return map(lambda s: x == s, allowable_set)
 
 def atom_features(atom):
-    return torch.Tensor(onek_encoding_unk(atom.GetSymbol(), ELEM_LIST) 
-            + onek_encoding_unk(atom.GetDegree(), [0,1,2,3,4,5]) 
+    return torch.Tensor(onek_encoding_unk(atom.GetSymbol(), ELEM_LIST)
+            + onek_encoding_unk(atom.GetDegree(), [0,1,2,3,4,5])
             + onek_encoding_unk(atom.GetFormalCharge(), [-1,-2,1,2,0])
             + onek_encoding_unk(int(atom.GetChiralTag()), [0,1,2,3])
             + [atom.GetIsAromatic()])
@@ -68,7 +68,7 @@ class MPN(nn.Module):
             batch_vecs.append( cur_vecs )
 
         mol_vecs = torch.stack(batch_vecs, dim=0)
-        return mol_vecs 
+        return mol_vecs
 
     @staticmethod
     def tensorize(mol_batch):
@@ -92,7 +92,7 @@ class MPN(nn.Module):
                 x = a1.GetIdx() + total_atoms
                 y = a2.GetIdx() + total_atoms
 
-                b = len(all_bonds) 
+                b = len(all_bonds)
                 all_bonds.append((x,y))
                 fbonds.append( torch.cat([fatoms[x], bond_features(bond)], 0) )
                 in_bonds[y].append(b)
@@ -101,7 +101,7 @@ class MPN(nn.Module):
                 all_bonds.append((y,x))
                 fbonds.append( torch.cat([fatoms[y], bond_features(bond)], 0) )
                 in_bonds[x].append(b)
-            
+
             scope.append((total_atoms,n_atoms))
             total_atoms += n_atoms
 
@@ -122,4 +122,3 @@ class MPN(nn.Module):
                     bgraph[b1,i] = b2
 
         return (fatoms, fbonds, agraph, bgraph, scope)
-

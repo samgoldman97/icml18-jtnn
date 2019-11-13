@@ -5,25 +5,19 @@ from torch.autograd import Variable
 import math, random, sys
 from optparse import OptionParser
 
-import rdkit
-import rdkit.Chem as Chem
-from rdkit.Chem import Draw
-
 import numpy as np
 from jtnn import *
-
-lg = rdkit.RDLogger.logger() 
-lg.setLevel(rdkit.RDLogger.CRITICAL)
+import sys
 
 parser = OptionParser()
 parser.add_option("-v", "--vocab", dest="vocab_path")
 parser.add_option("-m", "--model", dest="model_path")
-parser.add_option("-w", "--hidden", dest="hidden_size", default=200)
+parser.add_option("-w", "--hidden", dest="hidden_size", default=450)
 parser.add_option("-l", "--latent", dest="latent_size", default=56)
 parser.add_option("-d", "--depth", dest="depth", default=3)
 opts,args = parser.parse_args()
-   
-vocab = [x.strip("\r\n ") for x in open(opts.vocab_path)] 
+
+vocab = [x.strip("\r\n ") for x in open(opts.vocab_path)]
 vocab = Vocab(vocab)
 
 hidden_size = int(opts.hidden_size)
@@ -34,29 +28,59 @@ model = JTNNVAE(vocab, hidden_size, latent_size, depth)
 model.load_state_dict(torch.load(opts.model_path))
 model = model.cuda()
 
-np.random.seed(0)
-x = np.random.randn(latent_size)
-x /= np.linalg.norm(x)
+#z0 = [
+#    "CN1C(C2=CC(NC3C[C@H](C)C[C@@H](C)C3)=CN=C2)=NN=C1",
+#    "COC1=CC(OC)=CC([C@@H]2C[NH+](CCC(F)(F)F)CC2)=C1",
+#    "COC1=CC(OC)=CC([C@@H]2C[NH+](CCC(F)(F)F)CC2)=C1"
+#]
 
-y = np.random.randn(latent_size)
-y -= y.dot(x) * x
-y /= np.linalg.norm(y)
+names, smiles = [], []
+with open('caman_smiles.txt') as f:
+    f.readline()
+    for line in f:
+        fields = line.rstrip().split()
+        names.append(fields[2])
+        smiles.append(fields[0])
 
-#z0 = "CN1C(C2=CC(NC3C[C@H](C)C[C@@H](C)C3)=CN=C2)=NN=C1"
-z0 = "COC1=CC(OC)=CC([C@@H]2C[NH+](CCC(F)(F)F)CC2)=C1"
-z0 = model.encode_latent_mean([z0]).squeeze()
+z0 = model.encode_latent_mean(smiles).squeeze()
 z0 = z0.data.cpu().numpy()
 
-delta = 1
-nei_mols = []
-for dx in xrange(-6,7):
-    for dy in xrange(-6,7):
-        z = z0 + x * delta * dx + y * delta * dy
-        tree_z, mol_z = torch.Tensor(z).unsqueeze(0).chunk(2, dim=1)
-        tree_z, mol_z = create_var(tree_z), create_var(mol_z)
-        nei_mols.append( model.decode(tree_z, mol_z, prob_decode=False) )
+for smile_idx, name in enumerate(names):
+    print('>{}'.format(name))
+    print('\t'.join([ str(field) for field in z0[smile_idx] ]))
+    sys.stdout.flush()
 
-nei_mols = [Chem.MolFromSmiles(s) for s in nei_mols]
-img = Draw.MolsToGridImage(nei_mols, molsPerRow=13, subImgSize=(200,200), useSVG=True)
-print img
+exit()
 
+names, smiles = [], []
+with open('zinc_fda_instock.txt') as f:
+    f.readline()
+    for line in f:
+        fields = line.rstrip().split()
+        names.append(fields[0])
+        smiles.append(fields[-1])
+
+z0 = model.encode_latent_mean(smiles).squeeze()
+z0 = z0.data.cpu().numpy()
+
+for smile_idx, name in enumerate(names):
+    print('>{}'.format(name))
+    print('\t'.join([ str(field) for field in z0[smile_idx] ]))
+    sys.stdout.flush()
+
+exit()
+names, smiles = [], []
+with open('chem_smiles.csv') as f:
+    f.readline()
+    for line in f:
+        fields = line.rstrip().split(',')
+        names.append(fields[0])
+        smiles.append(fields[-1])
+
+z0 = model.encode_latent_mean(smiles).squeeze()
+z0 = z0.data.cpu().numpy()
+
+for smile_idx, name in enumerate(names):
+    print('>{}'.format(name))
+    print('\t'.join([ str(field) for field in z0[smile_idx] ]))
+    sys.stdout.flush()

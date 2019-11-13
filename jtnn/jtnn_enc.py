@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 from collections import deque
-from mol_tree import Vocab, MolTree
-from nnutils import create_var, GRU
+from .mol_tree import Vocab, MolTree
+from .nnutils import create_var, GRU
 
 MAX_NB = 8
 
@@ -13,7 +13,7 @@ class JTNNEncoder(nn.Module):
         self.hidden_size = hidden_size
         self.vocab_size = vocab.size()
         self.vocab = vocab
-        
+
         if embedding is None:
             self.embedding = nn.Embedding(self.vocab_size, hidden_size)
         else:
@@ -30,12 +30,12 @@ class JTNNEncoder(nn.Module):
         for root in root_batch:
             order = get_prop_order(root)
             orders.append(order)
-        
+
         h = {}
         max_depth = max([len(x) for x in orders])
         padding = create_var(torch.zeros(self.hidden_size), False)
 
-        for t in xrange(max_depth):
+        for t in range(max_depth):
             prop_list = []
             for order in orders:
                 if t < len(order):
@@ -106,11 +106,10 @@ def node_aggregate(nodes, h, embedding, W):
         pad_len = MAX_NB - len(nei)
         nei.extend([padding] * pad_len)
         h_nei.extend(nei)
-    
+
     h_nei = torch.cat(h_nei, dim=0).view(-1,MAX_NB,hidden_size)
     sum_h_nei = h_nei.sum(dim=1)
     x_vec = create_var(torch.LongTensor(x_idx))
     x_vec = embedding(x_vec)
     node_vec = torch.cat([x_vec, sum_h_nei], dim=1)
     return nn.ReLU()(W(node_vec))
-

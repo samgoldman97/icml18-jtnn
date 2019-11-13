@@ -1,13 +1,13 @@
 import torch
 import torch.nn as nn
-from mol_tree import Vocab, MolTree
-from nnutils import create_var
-from jtnn_enc import JTNNEncoder
-from jtnn_dec import JTNNDecoder
-from mpn import MPN, mol2graph
-from jtmpn import JTMPN
+from .mol_tree import Vocab, MolTree
+from .nnutils import create_var
+from .jtnn_enc import JTNNEncoder
+from .jtnn_dec import JTNNDecoder
+from .mpn import MPN, mol2graph
+from .jtmpn import JTMPN
 
-from chemutils import enum_assemble, set_atommap, copy_edit_mol, attach_mols, atom_equal, decode_stereo
+from .chemutils import enum_assemble, set_atommap, copy_edit_mol, attach_mols, atom_equal, decode_stereo
 import rdkit
 import rdkit.Chem as Chem
 from rdkit import DataStructs
@@ -19,7 +19,7 @@ def set_batch_nodeID(mol_batch, vocab):
     for mol_tree in mol_batch:
         for node in mol_tree.nodes:
             node.idx = tot
-            node.wid = vocab.get_index(node.smiles)
+            #node.wid = vocab.get_index(node.smiles)
             tot += 1
 
 class JTNNVAE(nn.Module):
@@ -35,36 +35,39 @@ class JTNNVAE(nn.Module):
         self.jtnn = JTNNEncoder(vocab, hidden_size, self.embedding)
         self.jtmpn = JTMPN(hidden_size, depth)
         self.mpn = MPN(hidden_size, depth)
-        self.decoder = JTNNDecoder(vocab, hidden_size, latent_size / 2, self.embedding)
+        self.decoder = JTNNDecoder(vocab, hidden_size, latent_size // 2, self.embedding)
 
-        self.T_mean = nn.Linear(hidden_size, latent_size / 2)
-        self.T_var = nn.Linear(hidden_size, latent_size / 2)
-        self.G_mean = nn.Linear(hidden_size, latent_size / 2)
-        self.G_var = nn.Linear(hidden_size, latent_size / 2)
-        
+        self.T_mean = nn.Linear(hidden_size, latent_size // 2)
+        self.T_var = nn.Linear(hidden_size, latent_size // 2)
+        self.G_mean = nn.Linear(hidden_size, latent_size // 2)
+        self.G_var = nn.Linear(hidden_size, latent_size // 2)
+
         self.assm_loss = nn.CrossEntropyLoss(size_average=False)
         self.use_stereo = stereo
         if stereo:
             self.stereo_loss = nn.CrossEntropyLoss(size_average=False)
-    
+
     def encode(self, mol_batch):
         set_batch_nodeID(mol_batch, self.vocab)
-        root_batch = [mol_tree.nodes[0] for mol_tree in mol_batch]
-        tree_mess,tree_vec = self.jtnn(root_batch)
+        #root_batch = [mol_tree.nodes[0] for mol_tree in mol_batch]
+        #tree_mess,tree_vec = self.jtnn(root_batch)
 
         smiles_batch = [mol_tree.smiles for mol_tree in mol_batch]
         mol_vec = self.mpn(mol2graph(smiles_batch))
-        return tree_mess, tree_vec, mol_vec
+        #return tree_mess, tree_vec, mol_vec
+        return mol_vec
 
     def encode_latent_mean(self, smiles_list):
         mol_batch = [MolTree(s) for s in smiles_list]
         for mol_tree in mol_batch:
             mol_tree.recover()
 
-        _, tree_vec, mol_vec = self.encode(mol_batch)
-        tree_mean = self.T_mean(tree_vec)
+        #_, tree_vec, mol_vec = self.encode(mol_batch)
+        #tree_mean = self.T_mean(tree_vec)
+        mol_vec = self.encode(mol_batch)
         mol_mean = self.G_mean(mol_vec)
-        return torch.cat([tree_mean,mol_mean], dim=1)
+        #return torch.cat([tree_mean,mol_mean], dim=1)
+        return mol_mean
 
     def forward(self, mol_batch, beta=0):
         batch_size = len(mol_batch)
@@ -84,7 +87,7 @@ class JTNNVAE(nn.Module):
         tree_vec = tree_mean + torch.exp(tree_log_var / 2) * epsilon
         epsilon = create_var(torch.randn(batch_size, self.latent_size / 2), False)
         mol_vec = mol_mean + torch.exp(mol_log_var / 2) * epsilon
-        
+
         word_loss, topo_loss, word_acc, topo_acc = self.decoder(mol_batch, tree_vec)
         assm_loss, assm_acc = self.assm(mol_batch, mol_vec, tree_mess)
         if self.use_stereo:
@@ -93,7 +96,7 @@ class JTNNVAE(nn.Module):
             stereo_loss, stereo_acc = 0, 0
 
         all_vec = torch.cat([tree_vec, mol_vec], dim=1)
-        loss = word_loss + topo_loss + assm_loss + 2 * stereo_loss + beta * kl_loss 
+        loss = word_loss + topo_loss + assm_loss + 2 * stereo_loss + beta * kl_loss
 
         return loss, kl_loss.item(), word_acc, topo_acc, assm_acc, stereo_acc
 
@@ -116,7 +119,7 @@ class JTNNVAE(nn.Module):
         mol_vec = mol_vec.view(-1, 1, self.latent_size / 2)
         cand_vec = cand_vec.view(-1, self.latent_size / 2, 1)
         scores = torch.bmm(mol_vec, cand_vec).squeeze()
-        
+
         cnt,tot,acc = 0,0,0
         all_loss = []
         for i,mol_tree in enumerate(mol_batch):
@@ -133,7 +136,7 @@ class JTNNVAE(nn.Module):
 
                 label = create_var(torch.LongTensor([label]))
                 all_loss.append( self.assm_loss(cur_score.view(1,-1), label) )
-        
+
         #all_loss = torch.stack(all_loss).sum() / len(mol_batch)
         all_loss = sum(all_loss) / len(mol_batch)
         return all_loss, acc * 1.0 / cnt
@@ -150,7 +153,7 @@ class JTNNVAE(nn.Module):
             batch_idx.extend([i] * len(cands))
             labels.append( (cands.index(mol_tree.smiles3D), len(cands)) )
 
-        if len(labels) == 0: 
+        if len(labels) == 0:
             return create_var(torch.zeros(1)), 1.0
 
         batch_idx = create_var(torch.LongTensor(batch_idx))
@@ -163,7 +166,7 @@ class JTNNVAE(nn.Module):
         all_loss = []
         for label,le in labels:
             cur_scores = scores.narrow(0, st, le)
-            if cur_scores.data[label] >= cur_scores.max().data[0]: 
+            if cur_scores.data[label] >= cur_scores.max().data[0]:
                 acc += 1
             label = create_var(torch.LongTensor([label]))
             all_loss.append( self.stereo_loss(cur_scores.view(1,-1), label) )
@@ -176,7 +179,7 @@ class JTNNVAE(nn.Module):
         mol_tree = MolTree(smiles)
         mol_tree.recover()
         _,tree_vec,mol_vec = self.encode([mol_tree])
-        
+
         tree_mean = self.T_mean(tree_vec)
         tree_log_var = -torch.abs(self.T_var(tree_vec)) #Following Mueller et al.
         mol_mean = self.G_mean(mol_vec)
@@ -192,12 +195,12 @@ class JTNNVAE(nn.Module):
         mol_tree = MolTree(smiles)
         mol_tree.recover()
         _,tree_vec,mol_vec = self.encode([mol_tree])
-        
+
         tree_mean = self.T_mean(tree_vec)
         tree_log_var = -torch.abs(self.T_var(tree_vec)) #Following Mueller et al.
         mol_mean = self.G_mean(mol_vec)
         mol_log_var = -torch.abs(self.G_var(mol_vec)) #Following Mueller et al.
-        
+
         all_smiles = []
         for i in xrange(10):
             epsilon = create_var(torch.randn(1, self.latent_size / 2), False)
@@ -222,7 +225,7 @@ class JTNNVAE(nn.Module):
             s = self.decode(tree_vec, mol_vec, prob_decode=True)
             all_smiles.append(s)
         return all_smiles
-    
+
     def decode(self, tree_vec, mol_vec, prob_decode):
         pred_root,pred_nodes = self.decoder.decode(tree_vec, prob_decode)
 
@@ -240,7 +243,7 @@ class JTNNVAE(nn.Module):
         global_amap[1] = {atom.GetIdx():atom.GetIdx() for atom in cur_mol.GetAtoms()}
 
         cur_mol = self.dfs_assemble(tree_mess, mol_vec, pred_nodes, cur_mol, global_amap, [], pred_root, None, prob_decode)
-        if cur_mol is None: 
+        if cur_mol is None:
             return None
 
         cur_mol = cur_mol.GetMol()
@@ -252,7 +255,7 @@ class JTNNVAE(nn.Module):
 
         smiles2D = Chem.MolToSmiles(cur_mol)
         stereo_cands = decode_stereo(smiles2D)
-        if len(stereo_cands) == 1: 
+        if len(stereo_cands) == 1:
             return stereo_cands[0]
         stereo_vecs = self.mpn(mol2graph(stereo_cands))
         stereo_vecs = self.G_mean(stereo_vecs)
@@ -305,12 +308,12 @@ class JTNNVAE(nn.Module):
             new_mol = Chem.MolFromSmiles(Chem.MolToSmiles(new_mol))
 
             if new_mol is None: continue
-            
+
             result = True
             for nei_node in children:
                 if nei_node.is_leaf: continue
                 cur_mol = self.dfs_assemble(tree_mess, mol_vec, all_nodes, cur_mol, new_global_amap, pred_amap, nei_node, cur_node, prob_decode)
-                if cur_mol is None: 
+                if cur_mol is None:
                     result = False
                     break
             if result: return cur_mol

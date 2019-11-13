@@ -1,7 +1,7 @@
 import rdkit
 import rdkit.Chem as Chem
 import copy
-from chemutils import get_clique_mol, tree_decomp, get_mol, get_smiles, set_atommap, enum_assemble, decode_stereo
+from .chemutils import get_clique_mol, tree_decomp, get_mol, get_smiles, set_atommap, enum_assemble, decode_stereo
 
 def get_slots(smiles):
     mol = Chem.MolFromSmiles(smiles)
@@ -13,7 +13,7 @@ class Vocab(object):
         self.vocab = smiles_list
         self.vmap = {x:i for i,x in enumerate(self.vocab)}
         self.slots = [get_slots(smiles) for smiles in self.vocab]
-        
+
     def get_index(self, smiles):
         return self.vmap[smiles]
 
@@ -34,7 +34,7 @@ class MolTreeNode(object):
 
         self.clique = [x for x in clique] #copy
         self.neighbors = []
-        
+
     def add_neighbor(self, nei_node):
         self.neighbors.append(nei_node)
 
@@ -47,7 +47,7 @@ class MolTreeNode(object):
 
         for nei_node in self.neighbors:
             clique.extend(nei_node.clique)
-            if nei_node.is_leaf: #Leaf node, no need to mark 
+            if nei_node.is_leaf: #Leaf node, no need to mark
                 continue
             for cidx in nei_node.clique:
                 #allow singleton node override the atom mapping
@@ -64,7 +64,7 @@ class MolTreeNode(object):
             original_mol.GetAtomWithIdx(cidx).SetAtomMapNum(0)
 
         return self.label
-    
+
     def assemble(self):
         neighbors = [nei for nei in self.neighbors if nei.mol.GetNumAtoms() > 1]
         neighbors = sorted(neighbors, key=lambda x:x.mol.GetNumAtoms(), reverse=True)
@@ -105,7 +105,7 @@ class MolTree(object):
         for x,y in edges:
             self.nodes[x].add_neighbor(self.nodes[y])
             self.nodes[y].add_neighbor(self.nodes[x])
-        
+
         if root > 0:
             self.nodes[0],self.nodes[root] = self.nodes[root],self.nodes[0]
 
@@ -128,7 +128,7 @@ class MolTree(object):
 
 if __name__ == "__main__":
     import sys
-    lg = rdkit.RDLogger.logger() 
+    lg = rdkit.RDLogger.logger()
     lg.setLevel(rdkit.RDLogger.CRITICAL)
 
     cset = set()
@@ -138,5 +138,4 @@ if __name__ == "__main__":
         for c in mol.nodes:
             cset.add(c.smiles)
     for x in cset:
-        print x
-
+        print(x)

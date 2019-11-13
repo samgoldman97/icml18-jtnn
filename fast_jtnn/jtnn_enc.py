@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from collections import deque
-from mol_tree import Vocab, MolTree
-from nnutils import create_var, index_select_ND
+from .mol_tree import Vocab, MolTree
+from .nnutils import create_var, index_select_ND
 
 class JTNNEncoder(nn.Module):
 
@@ -45,14 +45,14 @@ class JTNNEncoder(nn.Module):
 
     @staticmethod
     def tensorize(tree_batch):
-        node_batch = [] 
+        node_batch = []
         scope = []
         for tree in tree_batch:
             scope.append( (len(node_batch), len(tree.nodes)) )
             node_batch.extend(tree.nodes)
 
         return JTNNEncoder.tensorize_nodes(node_batch, scope)
-    
+
     @staticmethod
     def tensorize_nodes(node_batch, scope):
         messages,mess_dict = [None],{}
@@ -69,7 +69,7 @@ class JTNNEncoder(nn.Module):
 
         for x,y in messages[1:]:
             mid1 = mess_dict[(x.idx,y.idx)]
-            fmess[mid1] = x.idx 
+            fmess[mid1] = x.idx
             node_graph[y.idx].append(mid1)
             for z in y.neighbors:
                 if z.idx == x.idx: continue
@@ -118,7 +118,7 @@ class GraphGRU(nn.Module):
             r_1 = self.W_r(x).view(-1, 1, self.hidden_size)
             r_2 = self.U_r(h_nei)
             r = F.sigmoid(r_1 + r_2)
-            
+
             gated_h = r * h_nei
             sum_gated_h = gated_h.sum(dim=1)
             h_input = torch.cat([x, sum_gated_h], dim=1)
@@ -127,5 +127,3 @@ class GraphGRU(nn.Module):
             h = h * mask
 
         return h
-
-
