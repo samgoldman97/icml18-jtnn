@@ -197,7 +197,7 @@ class JTNNVAE(nn.Module):
 
         backup_mol = Chem.RWMol(cur_mol)
         pre_mol = cur_mol
-        for i in xrange(cand_idx.numel()):
+        for i in range(cand_idx.numel()):
             cur_mol = Chem.RWMol(backup_mol)
             pred_amap = cand_amap[cand_idx[i].item()]
             new_global_amap = copy.deepcopy(global_amap)

@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     le = (len(all_data) + num_splits - 1) / num_splits
 
-    for split_id in xrange(num_splits):
+    for split_id in range(num_splits):
         st = split_id * le
         sub_data = all_data[st : st + le]
 

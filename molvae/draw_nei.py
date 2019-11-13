@@ -35,52 +35,23 @@ model = model.cuda()
 #]
 
 names, smiles = [], []
-with open('caman_smiles.txt') as f:
-    f.readline()
+with open('mol_samples.txt') as f:
+    #f.readline()
     for line in f:
         fields = line.rstrip().split()
-        names.append(fields[2])
+        names.append(fields[0])
         smiles.append(fields[0])
 
-z0 = model.encode_latent_mean(smiles).squeeze()
-z0 = z0.data.cpu().numpy()
+batch_size = 10000
 
-for smile_idx, name in enumerate(names):
-    print('>{}'.format(name))
-    print('\t'.join([ str(field) for field in z0[smile_idx] ]))
-    sys.stdout.flush()
+for i in range(math.ceil(len(smiles) // batch_size)):
+    smiles_batch = smiles[i*batch_size:(i+1)*batch_size]
+    names_batch = smiles[i*batch_size:(i+1)*batch_size]
 
-exit()
+    z0 = model.encode_latent_mean(smiles_batch).squeeze()
+    z0 = z0.data.cpu().numpy()
 
-names, smiles = [], []
-with open('zinc_fda_instock.txt') as f:
-    f.readline()
-    for line in f:
-        fields = line.rstrip().split()
-        names.append(fields[0])
-        smiles.append(fields[-1])
-
-z0 = model.encode_latent_mean(smiles).squeeze()
-z0 = z0.data.cpu().numpy()
-
-for smile_idx, name in enumerate(names):
-    print('>{}'.format(name))
-    print('\t'.join([ str(field) for field in z0[smile_idx] ]))
-    sys.stdout.flush()
-
-exit()
-names, smiles = [], []
-with open('chem_smiles.csv') as f:
-    f.readline()
-    for line in f:
-        fields = line.rstrip().split(',')
-        names.append(fields[0])
-        smiles.append(fields[-1])
-
-z0 = model.encode_latent_mean(smiles).squeeze()
-z0 = z0.data.cpu().numpy()
-
-for smile_idx, name in enumerate(names):
-    print('>{}'.format(name))
-    print('\t'.join([ str(field) for field in z0[smile_idx] ]))
-    sys.stdout.flush()
+    for smile_idx, name in enumerate(names_batch):
+        print('>{}'.format(name))
+        print('\t'.join([ str(field) for field in z0[smile_idx] ]))
+        sys.stdout.flush()

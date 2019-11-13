@@ -31,7 +31,7 @@ class PairTreeFolder(object):
             if self.shuffle:
                 random.shuffle(data) #shuffle data before batch
 
-            batches = [data[i : i + self.batch_size] for i in xrange(0, len(data), self.batch_size)]
+            batches = [data[i : i + self.batch_size] for i in range(0, len(data), self.batch_size)]
             if len(batches[-1]) < self.batch_size:
                 batches.pop()
 
@@ -66,7 +66,7 @@ class MolTreeFolder(object):
             if self.shuffle:
                 random.shuffle(data) #shuffle data before batch
 
-            batches = [data[i : i + self.batch_size] for i in xrange(0, len(data), self.batch_size)]
+            batches = [data[i : i + self.batch_size] for i in range(0, len(data), self.batch_size)]
             if len(batches[-1]) < self.batch_size:
                 batches.pop()
 

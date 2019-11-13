@@ -63,7 +63,7 @@ dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_worker
 MAX_EPOCH = 6
 PRINT_ITER = 20
 
-for epoch in xrange(MAX_EPOCH):
+for epoch in range(MAX_EPOCH):
     word_acc,topo_acc,assm_acc,steo_acc,prop_acc = 0,0,0,0,0
 
     for it, batch in enumerate(dataloader):

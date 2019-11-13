@@ -74,7 +74,7 @@ total_step = args.load_epoch
 beta = args.beta
 meters = np.zeros(4)
 
-for epoch in xrange(args.epoch):
+for epoch in range(args.epoch):
     loader = MolTreeFolder(args.train, vocab, args.batch_size, num_workers=4)
     for batch in loader:
         total_step += 1

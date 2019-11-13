@@ -18,8 +18,8 @@ def load_object(filename):
     return ret
 
 all_smiles = []
-for i in xrange(1,11):
-    for j in xrange(5):
+for i in range(1,11):
+    for j in range(5):
         fn = 'results%d/scores%d.dat' % (i,j)
         scores = load_object(fn)
         fn = 'results%d/valid_smiles%d.dat' % (i,j)
