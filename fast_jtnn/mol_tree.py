@@ -108,18 +108,3 @@ def dfs(node, fa_idx):
         if child.idx == fa_idx: continue
         max_depth = max(max_depth, dfs(child, node.idx))
     return max_depth + 1
-
-
-if __name__ == "__main__":
-    import sys
-    lg = rdkit.RDLogger.logger()
-    lg.setLevel(rdkit.RDLogger.CRITICAL)
-
-    cset = set()
-    for line in sys.stdin:
-        smiles = line.split()[0]
-        mol = MolTree(smiles)
-        for c in mol.nodes:
-            cset.add(c.smiles)
-    for x in cset:
-        print(x)

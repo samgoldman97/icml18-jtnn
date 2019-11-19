@@ -31,3 +31,4 @@ model = model.cuda()
 torch.manual_seed(0)
 for i in range(args.nsample):
     print(model.sample_prior())
+    sys.stdout.flush()

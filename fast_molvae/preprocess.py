@@ -4,7 +4,7 @@ from multiprocessing import Pool
 
 import math, random, sys
 from optparse import OptionParser
-import cPickle as pickle
+import pickle
 
 from fast_jtnn import *
 import rdkit
@@ -25,7 +25,7 @@ def tensorize(smiles, assm=True):
     return mol_tree
 
 if __name__ == "__main__":
-    lg = rdkit.RDLogger.logger() 
+    lg = rdkit.RDLogger.logger()
     lg.setLevel(rdkit.RDLogger.CRITICAL)
 
     parser = OptionParser()
@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
     all_data = pool.map(tensorize, data)
 
-    le = (len(all_data) + num_splits - 1) / num_splits
+    le = (len(all_data) + num_splits - 1) // num_splits
 
     for split_id in range(num_splits):
         st = split_id * le
@@ -51,4 +51,3 @@ if __name__ == "__main__":
 
         with open('tensors-%d.pkl' % split_id, 'wb') as f:
             pickle.dump(sub_data, f, pickle.HIGHEST_PROTOCOL)
-

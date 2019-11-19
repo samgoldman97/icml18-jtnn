@@ -35,16 +35,18 @@ model = model.cuda()
 #]
 
 names, smiles = [], []
-with open('mol_samples.txt') as f:
+with open('cayman_mol_samples_hidden350.txt') as f:
     #f.readline()
     for line in f:
+        if line.rstrip() == 'None':
+            continue
         fields = line.rstrip().split()
         names.append(fields[0])
         smiles.append(fields[0])
 
 batch_size = 10000
 
-for i in range(math.ceil(len(smiles) // batch_size)):
+for i in range(math.ceil(len(smiles) // batch_size) + 1):
     smiles_batch = smiles[i*batch_size:(i+1)*batch_size]
     names_batch = smiles[i*batch_size:(i+1)*batch_size]
 

@@ -147,6 +147,7 @@ class JTNNVAE(nn.Module):
         global_amap[1] = {atom.GetIdx():atom.GetIdx() for atom in cur_mol.GetAtoms()}
 
         cur_mol,_ = self.dfs_assemble(tree_mess, x_mol_vecs, pred_nodes, cur_mol, global_amap, [], pred_root, None, prob_decode, check_aroma=True)
+
         if cur_mol is None:
             cur_mol = copy_edit_mol(pred_root.mol)
             global_amap = [{}] + [{} for node in pred_nodes]
@@ -174,7 +175,7 @@ class JTNNVAE(nn.Module):
 
         cur_amap = [(fa_nid,a2,a1) for nid,a1,a2 in fa_amap if nid == cur_node.nid]
         cands,aroma_score = enum_assemble(cur_node, neighbors, prev_nodes, cur_amap)
-        if len(cands) == 0 or (sum(aroma_score) < 0 and check_aroma):
+        if len(cands) == 0 or (check_aroma and sum(aroma_score) < 0):
             return None, cur_mol
 
         cand_smiles,cand_amap = zip(*cands)
@@ -219,10 +220,14 @@ class JTNNVAE(nn.Module):
                 tmp_mol, tmp_mol2 = self.dfs_assemble(y_tree_mess, x_mol_vecs, all_nodes, cur_mol, new_global_amap, pred_amap, nei_node, cur_node, prob_decode, check_aroma)
                 if tmp_mol is None:
                     has_error = True
-                    if i == 0: pre_mol = tmp_mol2
+                    if i == 0:
+                        pre_mol = tmp_mol2
                     break
                 cur_mol = tmp_mol
 
-            if not has_error: return cur_mol, cur_mol
+            if has_error:
+                break
+            else:
+                return cur_mol, cur_mol
 
         return None, pre_mol
