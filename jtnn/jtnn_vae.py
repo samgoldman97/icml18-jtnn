@@ -13,6 +13,7 @@ import rdkit.Chem as Chem
 from rdkit import DataStructs
 from rdkit.Chem import AllChem
 import copy, math
+import sys
 
 def set_batch_nodeID(mol_batch, vocab):
     tot = 0
@@ -58,7 +59,14 @@ class JTNNVAE(nn.Module):
         return mol_vec
 
     def encode_latent_mean(self, smiles_list):
-        mol_batch = [MolTree(s) for s in smiles_list]
+        mol_batch, valid_idx = [], []
+        for idx, s in enumerate(smiles_list):
+            try:
+                mol_batch.append(MolTree(s))
+                valid_idx.append(idx)
+            except:
+                sys.stderr.write('Invalid SMILE string: {}\n'.format(s))
+
         for mol_tree in mol_batch:
             mol_tree.recover()
 
@@ -67,7 +75,7 @@ class JTNNVAE(nn.Module):
         mol_vec = self.encode(mol_batch)
         mol_mean = self.G_mean(mol_vec)
         #return torch.cat([tree_mean,mol_mean], dim=1)
-        return mol_mean
+        return mol_mean, valid_idx
 
     def forward(self, mol_batch, beta=0):
         batch_size = len(mol_batch)

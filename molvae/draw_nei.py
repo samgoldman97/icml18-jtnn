@@ -35,7 +35,7 @@ model = model.cuda()
 #]
 
 names, smiles = [], []
-with open('cayman_mol_samples_hidden350.txt') as f:
+with open('cayman_mol_samples.txt') as f:
     #f.readline()
     for line in f:
         if line.rstrip() == 'None':
@@ -50,8 +50,11 @@ for i in range(math.ceil(len(smiles) // batch_size) + 1):
     smiles_batch = smiles[i*batch_size:(i+1)*batch_size]
     names_batch = smiles[i*batch_size:(i+1)*batch_size]
 
-    z0 = model.encode_latent_mean(smiles_batch).squeeze()
-    z0 = z0.data.cpu().numpy()
+    z0, valid_idx = model.encode_latent_mean(smiles_batch)
+    z0 = z0.squeeze().data.cpu().numpy()
+
+    smiles_batch = list(np.array(smiles_batch)[valid_idx])
+    names_batch = list(np.array(names_batch)[valid_idx])
 
     for smile_idx, name in enumerate(names_batch):
         print('>{}'.format(name))

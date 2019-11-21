@@ -121,6 +121,8 @@ class JTNNVAE(nn.Module):
         return all_loss, acc * 1.0 / cnt
 
     def decode(self, x_tree_vecs, x_mol_vecs, prob_decode):
+        global n_calls
+
         #currently do not support batch decoding
         assert x_tree_vecs.size(0) == 1 and x_mol_vecs.size(0) == 1
 
@@ -146,12 +148,14 @@ class JTNNVAE(nn.Module):
         global_amap = [{}] + [{} for node in pred_nodes]
         global_amap[1] = {atom.GetIdx():atom.GetIdx() for atom in cur_mol.GetAtoms()}
 
+        n_calls = 0
         cur_mol,_ = self.dfs_assemble(tree_mess, x_mol_vecs, pred_nodes, cur_mol, global_amap, [], pred_root, None, prob_decode, check_aroma=True)
 
         if cur_mol is None:
             cur_mol = copy_edit_mol(pred_root.mol)
             global_amap = [{}] + [{} for node in pred_nodes]
             global_amap[1] = {atom.GetIdx():atom.GetIdx() for atom in cur_mol.GetAtoms()}
+            n_calls = 0
             cur_mol,pre_mol = self.dfs_assemble(tree_mess, x_mol_vecs, pred_nodes, cur_mol, global_amap, [], pred_root, None, prob_decode, check_aroma=False)
             if cur_mol is None: cur_mol = pre_mol
 
@@ -163,7 +167,15 @@ class JTNNVAE(nn.Module):
         cur_mol = Chem.MolFromSmiles(Chem.MolToSmiles(cur_mol))
         return Chem.MolToSmiles(cur_mol) if cur_mol is not None else None
 
-    def dfs_assemble(self, y_tree_mess, x_mol_vecs, all_nodes, cur_mol, global_amap, fa_amap, cur_node, fa_node, prob_decode, check_aroma):
+    def dfs_assemble(self, y_tree_mess, x_mol_vecs, all_nodes, cur_mol,
+                     global_amap, fa_amap, cur_node, fa_node, prob_decode,
+                     check_aroma):
+        global n_calls
+        n_calls += 1
+
+        if n_calls > 2000:
+            return None, cur_mol
+
         fa_nid = fa_node.nid if fa_node is not None else -1
         prev_nodes = [fa_node] if fa_node is not None else []
 
@@ -217,7 +229,10 @@ class JTNNVAE(nn.Module):
             has_error = False
             for nei_node in children:
                 if nei_node.is_leaf: continue
-                tmp_mol, tmp_mol2 = self.dfs_assemble(y_tree_mess, x_mol_vecs, all_nodes, cur_mol, new_global_amap, pred_amap, nei_node, cur_node, prob_decode, check_aroma)
+                tmp_mol, tmp_mol2 = self.dfs_assemble(
+                    y_tree_mess, x_mol_vecs, all_nodes, cur_mol, new_global_amap,
+                    pred_amap, nei_node, cur_node, prob_decode, check_aroma,
+                )
                 if tmp_mol is None:
                     has_error = True
                     if i == 0:
@@ -225,9 +240,7 @@ class JTNNVAE(nn.Module):
                     break
                 cur_mol = tmp_mol
 
-            if has_error:
-                break
-            else:
+            if not has_error:
                 return cur_mol, cur_mol
 
         return None, pre_mol
