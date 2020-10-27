@@ -1,5 +1,10 @@
 # Junction Tree Variational Autoencoder for Molecular Graph Generation
 
+This is a fork of Brian Hie's Python 3 compatible version of the JTVAE as used
+in [http://cell.com/cell-systems/fulltext/S2405-4712(20)30364-1](Leveraging
+Uncertainty in Machine Learning Accelerates Biological Discovery and Design).
+Specifically, the pretrained ZINC embedding models from the old implementation can be used to embed a new set of molecules using the 'molvae/embed.py' script. 
+
 Official implementation of our Junction Tree Variational Autoencoder [https://arxiv.org/abs/1802.04364](https://arxiv.org/abs/1802.04364)
 
 # Accelerated Version

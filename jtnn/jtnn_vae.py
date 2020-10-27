@@ -58,6 +58,22 @@ class JTNNVAE(nn.Module):
         #return tree_mess, tree_vec, mol_vec
         return mol_vec
 
+    def encode_from_smiles(self, smiles_list):
+        mol_batch, valid_idx = [], []
+        for idx, s in enumerate(smiles_list):
+            try:
+                mol_batch.append(MolTree(s))
+                valid_idx.append(idx)
+            except:
+                sys.stderr.write('Invalid SMILE string: {}\n'.format(s))
+
+        for mol_tree in mol_batch:
+            mol_tree.recover()
+
+        mol_vec = self.encode(mol_batch)
+        mol_mean = self.G_mean(mol_vec)
+        return mol_mean
+
     def encode_latent_mean(self, smiles_list):
         mol_batch, valid_idx = [], []
         for idx, s in enumerate(smiles_list):

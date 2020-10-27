@@ -110,6 +110,8 @@ class MPN(nn.Module):
             nei_message = nei_message.sum(dim=1)
             nei_message = self.W_h(nei_message)
             message = nn.ReLU()(binput + nei_message)
+            temp = message.sum(1)
+
 
         nei_message = index_select_ND(message, 0, agraph)
         nei_message = nei_message.sum(dim=1)
